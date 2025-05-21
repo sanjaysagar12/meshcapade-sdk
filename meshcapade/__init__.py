@@ -20,5 +20,41 @@ def set_api_key(api_key: str):
     global API_KEY
     API_KEY = api_key
 
-# Import main components for easier access
+def set_api_url(api_url: str):
+    """Set a custom API URL for the Meshcapade API
+    
+    This is primarily used for testing or if Meshcapade provides a different API endpoint.
+    
+    Args:
+        api_url (str): The custom API URL
+    """
+    global API_URL
+    API_URL = api_url
+
+# Import exceptions for easier access
+from .exceptions import (
+    MeshCapadeError,
+    AuthenticationError, 
+    APIError,
+    ValidationError,
+    ResourceNotFoundError,
+    TimeoutError
+)
+
+# Import main components
 from .avatar import Avatar
+from .client import BaseClient
+
+# For convenient imports
+__all__ = [
+    'Avatar',
+    'BaseClient',
+    'set_api_key',
+    'set_api_url',
+    'MeshCapadeError',
+    'AuthenticationError',
+    'APIError',
+    'ValidationError',
+    'ResourceNotFoundError',
+    'TimeoutError'
+]
