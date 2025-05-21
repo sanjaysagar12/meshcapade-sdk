@@ -33,28 +33,85 @@ class Avatar:
         self.gender = gender
         return self
     
-    def _make_request(self, method: str, endpoint: str, data: dict = None):
-        # Logic to make a request to the MeshCapade API
-        # The full URL will be constructed using the self.avatars_endpoint as the base
+    def _make_request(self, method: str, endpoint: str, data: dict = None, headers: dict = None, files=None, params=None):
+        """Make a request to the MeshCapade API.
+        
+        Args:
+            method (str): HTTP method (GET, POST, PUT, DELETE, etc.)
+            endpoint (str): API endpoint to call, will be appended to the avatars_endpoint base URL
+            data (dict, optional): JSON data to include in the request body. Defaults to None.
+            headers (dict, optional): Additional headers to include in the request. Defaults to None.
+            files (dict, optional): Files to upload. Defaults to None.
+            params (dict, optional): URL parameters. Defaults to None.
+            
+        Returns:
+            dict: The JSON response from the API
+            
+        Raises:
+            Exception: If the request fails
+        """
         import requests
         
-        headers = {
+        # Default headers
+        default_headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
         
+        # Merge default headers with any additional headers
+        if headers:
+            default_headers.update(headers)
+        
+        # Construct the full URL
         url = f"{self.avatars_endpoint}/{endpoint}"
-
-        response = requests.request(method, url, headers=headers, json=data)
-        print(f"Making {method} request to {url} with data: {data}")
-        print(f"Response status code: {response.status_code}")
-        print(f"Response content: {response}")
-        return response.json()
         
-        # Implementation for different HTTP methods would go here
-        # This is just a skeleton implementation
+        # Print request details for debugging
+        print(f"Making {method} request to {url}")
+        if data:
+            print(f"Request data: {data}")
         
-        pass
+        # Make the request
+        try:
+            response = requests.request(
+                method=method, 
+                url=url, 
+                headers=default_headers, 
+                json=data if data and not files else None,
+                data=data if files and data else None,
+                files=files,
+                params=params
+            )
+            
+            print(f"Response status code: {response.status_code}")
+            
+            # Raise an exception for 4XX/5XX status codes
+            response.raise_for_status()
+            
+            # Parse and return JSON response if available
+            if response.headers.get('Content-Type', '').startswith('application/json') or response.headers.get('Content-Type', '').startswith('application/vnd.api+json'):
+                return response.json()
+            else:
+                # For non-JSON responses, return a dict with status and raw content
+                return {
+                    "status_code": response.status_code,
+                    "content": response.content,
+                    "headers": dict(response.headers)
+                }
+                
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP Error: {e}")
+            # Try to parse error response as JSON
+            try:
+                error_json = response.json()
+                print(f"Error response: {error_json}")
+                raise Exception(f"API request failed: {error_json.get('message', str(e))}")
+            except ValueError:
+                # If error isn't JSON, just raise the original error
+                raise Exception(f"API request failed: {str(e)}")
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Request Exception: {e}")
+            raise Exception(f"API request failed: {str(e)}")
     def create_avatar_from_image(self, image_paths=None):
         """Create a new avatar through the complete creation process.
         
@@ -80,13 +137,23 @@ class Avatar:
                             "Use set_name(), set_height(), set_weight(), and set_gender() methods.")
             
         print(f"Creating avatar with name: {self.name}, height: {self.height}, weight: {self.weight}, gender: {self.gender}")
+        
         # Step 1: Create an empty avatar
         avatar_data = self._create_empty_avatar()
-        self.avatar_id  = avatar_data['id']
+        
+        # Validate avatar_data and extract ID
+        if not avatar_data or 'id' not in avatar_data:
+            raise ValueError("Failed to get avatar ID from API response.")
+        
+        # Store the avatar ID
+        self.avatar_id = avatar_data['id']
+        print(f"Created empty avatar with ID: {self.avatar_id}")
+        
         # Step 2: Upload images for the avatar
         print(f"Uploading images for avatar ID: {self.avatar_id}")
         self._upload_images(self.avatar_id, image_paths)
         print(f"Images uploaded for avatar ID: {self.avatar_id}")
+        
         # Step 3: Start the fitting process using the uploaded images
         self._start_fitting_process(self.avatar_id)
         print(f"Fitting process started for avatar ID: {self.avatar_id}")
@@ -103,16 +170,20 @@ class Avatar:
             dict: The initial avatar data including the avatar ID
         """
         response = self._make_request("POST", "create/from-images")
-        print(response)
-        # Extract and return the response data
+        print(f"Create empty avatar response: {response}")
+        
+        
         if "data" in response and "id" in response["data"]:
             # Store avatar ID as an instance attribute for future operations
             self.id = response["data"]["id"]
-            
+                
             # Return the full response data for further processing
             return response["data"]
-        else:
-            raise ValueError("Failed to create avatar: Invalid API response")
+            
+        
+                    
+        # If we get here, we couldn't extract the avatar ID
+        raise ValueError("Failed to create avatar: Invalid API response")
     
     def _upload_images(self, avatar_id, image_paths=None):
         """Upload images for avatar creation.
@@ -130,7 +201,6 @@ class Avatar:
             # In a real implementation, this should raise an error if no images are provided
             return {"status": "skipped", "message": "No images provided"}
         
-        import requests
         import os
         
         upload_results = []
@@ -140,16 +210,9 @@ class Avatar:
                 continue
                 
             # STEP 1: Request a pre-signed URL for S3 upload
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            # Request the presigned URL from the API
-            presigned_url_request = f"{self.avatars_endpoint}/{avatar_id}/images"
-            presigned_response = requests.post(presigned_url_request, headers=headers)
-            presigned_data = presigned_response.json()
+            presigned_data = self._make_request("POST", f"{avatar_id}/images")
             print(f"Presigned URL response: {presigned_data}")
+            
             # Check if we received a valid response with an upload URL
             if ("data" not in presigned_data or 
                 "links" not in presigned_data["data"] or 
@@ -174,6 +237,7 @@ class Avatar:
                     'Content-Type': 'image/jpeg'  # Adjust based on actual image type if needed
                 }
                 
+                import requests
                 s3_response = requests.put(upload_url, headers=s3_headers, data=image_data)
                 print(f"S3 upload response: {s3_response.status_code}")
                 if s3_response.status_code == 200:
@@ -190,7 +254,7 @@ class Avatar:
                         "message": f"S3 upload failed with status code: {s3_response.status_code}",
                         "file": os.path.basename(image_path)
                     })
-        print
+        
         return {"uploaded_images": upload_results}
     
     def _start_fitting_process(self, avatar_id):
@@ -255,33 +319,22 @@ class Avatar:
             
         print(f"Checking avatar {avatar_id} for download...")
         
-        # Set up headers for API requests
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "accept": "application/json"
-        }
-        
         # Function to poll the API until the avatar is ready
-       
         def poll_until_ready():
             print("Polling for avatar readiness...")
-            avatar_url = f"{self.avatars_endpoint}/{avatar_id}?include=exported_mesh"
-            print(avatar_url)
+            
             while True:
                 # Get the current status of the avatar
-                response = requests.get(avatar_url, headers=headers)
-                response.raise_for_status()
-                print("Avatar URL:", avatar_url)
+                params = {"include": "exported_mesh"}
+                response = self._make_request("GET", f"{avatar_id}", params=params)
                 
-                data = response.json()
-                state = data.get("data", {}).get("attributes", {}).get("state", "")
-                
+                state = response.get("data", {}).get("attributes", {}).get("state", "")
                 print(f"Current state: {state}")
                 
                 # Check if the avatar is ready for download
                 if state == "READY":
                     # Look for mesh URLs in the included array
-                    included = data.get("included", [])
+                    included = response.get("included", [])
                     
                     for item in included:
                         if item.get("type") == "asset" and item.get("attributes", {}).get("url", {}).get("path"):
