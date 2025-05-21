@@ -1,9 +1,9 @@
 class Avatar:
-    def __init__(self,name: str, height: int, weight:int, gender:str):
-        self.name = name
-        self.height = height
-        self.weight = weight
-        self.gender = gender
+    def __init__(self):
+        self.name = None
+        self.height = None
+        self.weight = None
+        self.gender = None
         self.avatar_id = None
         # Import API_URL and API_KEY from the package's __init__.py
         from meshcapade import API_URL, API_KEY
@@ -12,6 +12,26 @@ class Avatar:
         
         if not self.api_key:
             raise ValueError("API key is not set. Please use meshcapade.set_api_key() to set your API key.")
+    
+    def set_name(self, name: str):
+        """Set the avatar name"""
+        self.name = name
+        return self
+        
+    def set_height(self, height: int):
+        """Set the avatar height in cm"""
+        self.height = height
+        return self
+        
+    def set_weight(self, weight: int):
+        """Set the avatar weight in kg"""
+        self.weight = weight
+        return self
+        
+    def set_gender(self, gender: str):
+        """Set the avatar gender (male/female)"""
+        self.gender = gender
+        return self
     
     def _make_request(self, method: str, endpoint: str, data: dict = None):
         # Logic to make a request to the MeshCapade API
@@ -35,7 +55,7 @@ class Avatar:
         # This is just a skeleton implementation
         
         pass
-    def create_avatar(self, image_paths=None):
+    def create_avatar_from_image(self, image_paths=None):
         """Create a new avatar through the complete creation process.
         
         This is a high-level method that orchestrates the complete avatar creation process:
@@ -49,9 +69,17 @@ class Avatar:
                                          Default is None.
         
         Returns:
-            dict: The created avatar data
+            str: The created avatar ID
+        
+        Raises:
+            ValueError: If required properties (name, height, weight, gender) are not set
         """
-        print(f"Creating avatar with name: {self.name}, height: {self.height}, weight: {self.weight}")
+        # Check if required properties are set
+        if self.name is None or self.height is None or self.weight is None or self.gender is None:
+            raise ValueError("Required properties (name, height, weight, gender) must be set before creating an avatar. "
+                            "Use set_name(), set_height(), set_weight(), and set_gender() methods.")
+            
+        print(f"Creating avatar with name: {self.name}, height: {self.height}, weight: {self.weight}, gender: {self.gender}")
         # Step 1: Create an empty avatar
         avatar_data = self._create_empty_avatar()
         self.avatar_id  = avatar_data['id']
@@ -66,7 +94,7 @@ class Avatar:
         # Step 4: Get the finalized avatar data
         # final_avatar = self._get_processed_avatar(avatar_data['id'])
         
-        return  self.avatar_id 
+        return self.avatar_id
     
     def _create_empty_avatar(self):
         """Create an empty avatar entry in the system.

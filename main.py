@@ -15,27 +15,26 @@ meshcapade.set_api_key(api_key)
 # Define path to test images
 image_folder = "/home/sagar/3d/meshcapade-sdk/test_images"
 test_images = [
-    os.path.join(image_folder, "women.jpg"),
+    os.path.join(image_folder, "front.jpg"),
 ]
 
 # Create an Avatar
 print("Creating a new avatar...")
-avatar = meshcapade.Avatar(
-    name="Emma",
-    height=180,
-    weight=75,
-    gender="female"
-)
+avatar = meshcapade.Avatar()
+avatar.set_name("stark")
+avatar.set_height(180)
+avatar.set_weight(75)
+avatar.set_gender("male")
 
 # Generate the avatar from images
 print("Generating avatar from images...")
-avatar_id = avatar.create_avatar(image_paths=test_images)
+avatar_id = avatar.create_avatar_from_image(image_paths=test_images)
 print(f"Avatar created with ID: {avatar_id}")
 
 # Wait for processing and download the result
 try:
     # Download the avatar to the current directory
-    output_file = "stark.obj"
+    output_file = "emma.obj"
     print(f"Downloading avatar to {output_file}...")
     
     # This will poll until the avatar is ready, then download it
