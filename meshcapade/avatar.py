@@ -12,38 +12,58 @@ class Avatar(BaseClient):
     
     def __init__(self, api_key=None, api_url=None):
         super().__init__(api_key, api_url)
-        self.name = None
-        self.height = None
-        self.weight = None
-        self.gender = None
+        self._name = None
+        self._height = None
+        self._weight = None
+        self._gender = None
         self.avatar_id = None
         self.avatars_endpoint = "avatars"
+    
+    @property
+    def name(self):
+        """Get the avatar name"""
+        return self._name
         
-    def set_name(self, name: str):
+    @name.setter
+    def name(self, value: str):
         """Set the avatar name"""
-        self.name = name
-        return self
+        self._name = value
         
-    def set_height(self, height: int):
+    @property
+    def height(self):
+        """Get the avatar height in cm"""
+        return self._height
+        
+    @height.setter
+    def height(self, value: int):
         """Set the avatar height in cm"""
-        if not isinstance(height, int) or height <= 0:
+        if not isinstance(value, int) or value <= 0:
             raise ValidationError("Height must be a positive integer")
-        self.height = height
-        return self
+        self._height = value
         
-    def set_weight(self, weight: int):
+    @property
+    def weight(self):
+        """Get the avatar weight in kg"""
+        return self._weight
+        
+    @weight.setter
+    def weight(self, value: int):
         """Set the avatar weight in kg"""
-        if not isinstance(weight, int) or weight <= 0:
+        if not isinstance(value, int) or value <= 0:
             raise ValidationError("Weight must be a positive integer")
-        self.weight = weight
-        return self
+        self._weight = value
         
-    def set_gender(self, gender: str):
+    @property
+    def gender(self):
+        """Get the avatar gender"""
+        return self._gender
+        
+    @gender.setter
+    def gender(self, value: str):
         """Set the avatar gender (male/female)"""
-        if gender not in ["male", "female"]:
+        if value not in ["male", "female"]:
             raise ValidationError("Gender must be either 'male' or 'female'")
-        self.gender = gender
-        return self
+        self._gender = value
     
     def create_avatar_from_image(self, image_paths=None):
         """Create a new avatar through the complete creation process.
@@ -354,6 +374,135 @@ class Avatar(BaseClient):
         
         return self.make_request("GET", f"{self.avatars_endpoint}", params=params)
     
+    def create_avatar_from_measurements(self, name=None, gender=None, measurements=None):
+        """Create a new avatar from body measurements.
+        
+        This method creates an avatar by providing specific body measurements
+        rather than using images. It's an alternative to create_avatar_from_image.
+        
+        Args:
+            name (str, optional): Name for the avatar. If not provided, uses the instance's name.
+            gender (str, optional): Gender of the avatar ('male' or 'female'). 
+                                 If not provided, uses the instance's gender.
+            measurements (dict, optional): Dictionary of body measurements.
+                                         If not provided, required instance attributes are used.
+                                         
+        The measurements dict can include the following keys (all values in cm except Weight in kg):
+            - Height: Overall height
+            - Weight: Weight in kg
+            - Bust_girth: Circumference around chest at fullest part
+            - Ankle_girth: Circumference around ankle
+            - Thigh_girth: Circumference around thigh
+            - Waist_girth: Circumference around waist
+            - Armscye_girth: Circumference around armhole
+            - Top_hip_girth: Circumference around top of hips
+            - Neck_base_girth: Circumference around base of neck
+            - Shoulder_length: Length of shoulder
+            - Lower_arm_length: Length of lower arm
+            - Upper_arm_length: Length of upper arm
+            - Inside_leg_height: Inseam length
+            
+        Returns:
+            str: The created avatar ID
+            
+        Raises:
+            ValidationError: If required properties are missing or invalid
+            APIError: If the API request fails
+        """
+        # Use provided values or fall back to instance attributes
+        avatar_name = name or self.name
+        avatar_gender = gender or self.gender
+        
+        # Validate required parameters
+        if not avatar_name:
+            raise ValidationError("Avatar name is required")
+        
+        if not avatar_gender:
+            raise ValidationError("Gender is required")
+            
+        if avatar_gender not in ["male", "female"]:
+            raise ValidationError("Gender must be either 'male' or 'female'")
+        
+        # If no measurements are provided, use height and weight from instance
+        if not measurements:
+            if self.height is None or self.weight is None:
+                raise ValidationError(
+                    "Measurements dict is required or height and weight must be set on the instance"
+                )
+            measurements = {
+                "Height": self.height,
+                "Weight": self.weight
+            }
+        
+        # Prepare the body with required avatar metadata
+        body = {
+            "name": avatar_name,
+            "gender": avatar_gender,
+            "measurements": measurements
+        }
+        
+        print(f"Creating avatar from measurements with name: {avatar_name}, gender: {avatar_gender}")
+        
+        # Send the request
+        response = self.make_request("POST", f"{self.avatars_endpoint}/create/from-measurements", data=body)
+        
+        # Process the response
+        if "data" in response and "id" in response["data"]:
+            # Store avatar ID as an instance attribute for future operations
+            self.avatar_id = response["data"]["id"]
+            print(f"Created avatar with ID: {self.avatar_id}")
+            return self.avatar_id
+                    
+        # If we get here, we couldn't extract the avatar ID
+        raise APIError("Failed to create avatar from measurements: Invalid API response")
+    
+    def create_predefined_avatar(self):
+        """Create a new avatar with predefined measurements.
+        
+        This method sends a POST request to create an avatar with a specific set
+        of predefined body measurements.
+        
+        Returns:
+            str: The created avatar ID
+            
+        Raises:
+            APIError: If the API request fails
+        """
+        # Predefined body for the request
+        body = {
+            "name": "Created from measurements API",
+            "gender": "female",
+            "measurements": {
+                "Height": 180,
+                "Weight": 87,
+                "Bust_girth": 109,
+                "Ankle_girth": 27,
+                "Thigh_girth": 70,
+                "Waist_girth": 94,
+                "Armscye_girth": 42,
+                "Top_hip_girth": 114,
+                "Neck_base_girth": 39,
+                "Shoulder_length": 10,
+                "Lower_arm_length": 24,
+                "Upper_arm_length": 35,
+                "Inside_leg_height": 83
+            }
+        }
+        
+        print("Creating avatar with predefined measurements")
+        
+        # Send the request
+        response = self.make_request("POST", f"{self.avatars_endpoint}/create/from-measurements", data=body)
+        
+        # Process the response
+        if "data" in response and "id" in response["data"]:
+            # Store avatar ID as an instance attribute for future operations
+            self.avatar_id = response["data"]["id"]
+            print(f"Created predefined avatar with ID: {self.avatar_id}")
+            return self.avatar_id
+                    
+        # If we get here, we couldn't extract the avatar ID
+        raise APIError("Failed to create predefined avatar: Invalid API response")
   
     def __repr__(self):
         return f"Avatar(id={self.avatar_id}, name={self.name})"
