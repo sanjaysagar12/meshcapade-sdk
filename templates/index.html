@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avatar Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold text-center mb-6">Create Your 3D Avatar</h1>
+            
+            <form id="avatarForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" id="name" name="name" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Gender</label>
+                    <select id="gender" name="gender" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">API Key</label>
+                    <input type="password" id="apiKey" name="apiKey" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Height (cm) - Optional</label>
+                    <input type="number" id="height" name="height"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Weight (kg) - Optional</label>
+                    <input type="number" id="weight" name="weight"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Image</label>
+                    <input type="file" id="image" name="image" accept=".jpg,.jpeg,.png" required
+                        class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+
+                <button type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Create Avatar
+                </button>
+            </form>
+
+            <!-- Response message -->
+            <div id="response" class="mt-4 hidden">
+                <div id="successMessage" class="hidden rounded-md bg-green-50 p-4">
+                    <div class="flex">
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-green-800">Success</h3>
+                            <div class="mt-2 text-sm text-green-700">
+                                <p id="successText"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="errorMessage" class="hidden rounded-md bg-red-50 p-4">
+                    <div class="flex">
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">Error</h3>
+                            <div class="mt-2 text-sm text-red-700">
+                                <p id="errorText"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('avatarForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Hide previous messages
+            document.getElementById('response').classList.add('hidden');
+            document.getElementById('successMessage').classList.add('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+
+            // Create FormData object
+            const formData = new FormData();
+            formData.append('name', document.getElementById('name').value);
+            formData.append('gender', document.getElementById('gender').value);
+            formData.append('api_key', document.getElementById('apiKey').value);
+            
+            // Add optional parameters if they have values
+            const height = document.getElementById('height').value;
+            const weight = document.getElementById('weight').value;
+            if (height) formData.append('height', height);
+            if (weight) formData.append('weight', weight);
+            
+            // Add image file
+            const imageFile = document.getElementById('image').files[0];
+            formData.append('image', imageFile);
+
+            try {
+                const response = await fetch('/create-avatar', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                document.getElementById('response').classList.remove('hidden');
+
+                if (response.ok) {
+                    document.getElementById('successMessage').classList.remove('hidden');
+                    document.getElementById('successText').textContent = 
+                        `Avatar created successfully! Avatar ID: ${data.avatar_id}`;
+                } else {
+                    document.getElementById('errorMessage').classList.remove('hidden');
+                    document.getElementById('errorText').textContent = data.error;
+                }
+            } catch (error) {
+                document.getElementById('response').classList.remove('hidden');
+                document.getElementById('errorMessage').classList.remove('hidden');
+                document.getElementById('errorText').textContent = 
+                    'An error occurred while creating the avatar. Please try again.';
+            }
+        });
+    </script>
+</body>
+</html>
