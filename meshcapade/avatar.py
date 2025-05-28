@@ -82,23 +82,27 @@ class Avatar(BaseClient):
             str: The created avatar ID
         
         Raises:
-            ValidationError: If required properties (name, height, weight, gender) are not set
+            ValidationError: If required properties (name, gender) are not set
             APIError: If the API request fails
         """
         # Check if required properties are set
-        if self.name is None or self.height is None or self.weight is None or self.gender is None:
-            raise ValidationError("Required properties (name, height, weight, gender) must be set before creating an avatar. "
-                            "Use set_name(), set_height(), set_weight(), and set_gender() methods.")
+        if self.name is None or self.gender is None:
+            raise ValidationError("Required properties (name, gender) must be set before creating an avatar. "
+                            "Use name and gender setters.")
             
-        print(f"Creating avatar with name: {self.name}, height: {self.height}, weight: {self.weight}, gender: {self.gender}")
+        print(f"Creating avatar with name: {self.name}, gender: {self.gender}")
         
         # Prepare the body with required avatar metadata
         body = {
             "avatarname": self.name,
-            "height": self.height,
-            "weight": self.weight,
             "gender": self.gender
         }
+        
+        # Add optional parameters if they are set
+        if self.height is not None:
+            body["height"] = self.height
+        if self.weight is not None:
+            body["weight"] = self.weight
         
         # Step 1: Create an empty avatar
         avatar_data = self._create_empty_avatar(body)
